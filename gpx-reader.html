@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPX Heart Rate Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #232836;
+    --accent: #ff3c5f;
+    --accent2: #00e5b0;
+    --accent3: #ffb930;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --red: #ff3c5f;
+    --green: #00e5b0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,60,95,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,60,95,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    background: rgba(255,60,95,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(255,60,95,0.3);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* UPLOAD ZONE */
+  .upload-section {
+    margin-bottom: 32px;
+  }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dropzone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255,60,95,0.04) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(255,60,95,0.04);
+  }
+
+  .dropzone:hover::after, .dropzone.drag-over::after { opacity: 1; }
+
+  .dropzone-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+
+  .dropzone h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .dropzone p {
+    color: var(--muted);
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .dropzone input { display: none; }
+
+  .btn-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-upload:hover { background: #ff1a45; transform: translateY(-1px); }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: rgba(255,60,95,0.3); }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .stat-card.green::before { background: var(--accent2); }
+  .stat-card.yellow::before { background: var(--accent3); }
+  .stat-card.blue::before { background: #60a5fa; }
+
+  .stat-label {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .stat-value.red { color: var(--accent); }
+  .stat-value.green { color: var(--accent2); }
+  .stat-value.yellow { color: var(--accent3); }
+  .stat-value.blue { color: #60a5fa; }
+
+  .stat-unit {
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* HR SIMULATOR */
+  .hr-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 28px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .panel-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .panel-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(255,60,95,0.15);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .hr-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 16px;
+    align-items: end;
+  }
+
+  .input-group label {
+    display: block;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .input-field {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  .input-field:focus { border-color: var(--accent); }
+
+  .btn-generate {
+    background: linear-gradient(135deg, var(--accent), #c0003e);
+    color: white;
+    border: none;
+    padding: 13px 28px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,60,95,0.3); }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .hr-note {
+    margin-top: 14px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    padding: 10px 14px;
+    background: rgba(0,229,176,0.05);
+    border: 1px solid rgba(0,229,176,0.15);
+    border-radius: 8px;
+    line-height: 1.6;
+  }
+
+  /* TIMEZONE PANEL */
+  .tz-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+
+  .tz-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: end;
+  }
+
+  .tz-preview {
+    margin-top: 14px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    padding: 10px 14px;
+    background: rgba(96,165,250,0.05);
+    border: 1px solid rgba(96,165,250,0.15);
+    border-radius: 8px;
+    line-height: 1.8;
+    display: none;
+  }
+
+  .tz-preview.visible { display: block; }
+
+  .tz-arrow { color: var(--accent2); font-weight: 700; }
+
+  select.input-field {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  /* EXPORT BUTTONS */
+  .export-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 9px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid;
+  }
+
+  .btn-export.gpx {
+    background: rgba(0,229,176,0.1);
+    color: var(--accent2);
+    border-color: rgba(0,229,176,0.25);
+  }
+
+  .btn-export.gpx:hover { background: rgba(0,229,176,0.18); }
+
+  .btn-export.csv {
+    background: rgba(255,185,48,0.1);
+    color: var(--accent3);
+    border-color: rgba(255,185,48,0.25);
+  }
+
+  .btn-export.csv:hover { background: rgba(255,185,48,0.18); }
+
+  /* TABLE */
+  .table-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .table-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-title {
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .point-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    color: var(--muted);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    max-height: 520px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  thead tr {
+    background: var(--surface2);
+  }
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(35,40,54,0.7);
+    white-space: nowrap;
+  }
+
+  tbody tr:hover { background: rgba(255,60,95,0.04); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .hr-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hr-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .hr-bar {
+    display: inline-block;
+    height: 3px;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-left: 6px;
+    opacity: 0.6;
+  }
+
+  .zone-badge {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .zone-1 { background: rgba(96,165,250,0.15); color: #60a5fa; }
+  .zone-2 { background: rgba(0,229,176,0.15); color: var(--accent2); }
+  .zone-3 { background: rgba(255,185,48,0.15); color: var(--accent3); }
+  .zone-4 { background: rgba(255,100,30,0.15); color: #ff641e; }
+  .zone-5 { background: rgba(255,60,95,0.15); color: var(--accent); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 80px 32px;
+    color: var(--muted);
+  }
+
+  .empty-state .big-icon { font-size: 64px; margin-bottom: 20px; display: block; opacity: 0.4; }
+  .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; opacity: 0.5; }
+  .empty-state p { font-size: 13px; font-family: 'Space Mono', monospace; }
+
+  /* PULSE ANIMATION */
+  @keyframes pulse-beat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  .beating { animation: pulse-beat 1s ease-in-out infinite; display: inline-block; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4155; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    z-index: 1000;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* MODIF TOGGLE */
+  .modif-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 12px 6px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .modif-toggle:hover { border-color: rgba(255,60,95,0.35); }
+  .modif-toggle input { display: none; }
+
+  .modif-slider {
+    width: 32px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .modif-slider::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: white;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: transform 0.2s;
+  }
+  .modif-toggle input:checked ~ .modif-slider { background: var(--accent); }
+  .modif-toggle input:checked ~ .modif-slider::after { transform: translateX(14px); }
+
+  .modif-label {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: color 0.2s;
+  }
+  .modif-toggle input:checked ~ .modif-slider ~ .modif-label { color: var(--accent); }
+
+  /* STRAVA PANEL */
+  .strava-panel {
+    background: var(--surface);
+    border: 1px solid #fc4c02;
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .strava-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #fc4c02, #ff6b35);
+  }
+
+  .strava-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .strava-icon {
+    width: 32px; height: 32px;
+    background: #fc4c02;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .strava-title { font-size: 16px; font-weight: 700; }
+  .strava-sub { font-size: 12px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+
+  .strava-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .step-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .step-num {
+    width: 24px; height: 24px;
+    background: rgba(252,76,2,0.15);
+    color: #fc4c02;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .step-body { flex: 1; }
+
+  .step-label {
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+  }
+
+  .step-link {
+    color: #fc4c02;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(252,76,2,0.4);
+    transition: border-color 0.2s;
+  }
+  .step-link:hover { border-color: #fc4c02; }
+
+  .strava-token-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .token-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .token-input:focus { border-color: #fc4c02; }
+  .token-input::placeholder { color: var(--muted); letter-spacing: 0; }
+
+  .strava-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .strava-fields .input-group label { color: var(--muted); }
+
+  .btn-strava {
+    background: linear-gradient(135deg, #fc4c02, #c73a00);
+    color: white;
+    border: none;
+    padding: 13px 28px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn-strava:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(252,76,2,0.35); }
+  .btn-strava:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .upload-status {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    display: none;
+    line-height: 1.6;
+  }
+  .upload-status.loading { background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); color: #60a5fa; display: block; }
+  .upload-status.success { background: rgba(0,229,176,0.08); border: 1px solid rgba(0,229,176,0.2); color: var(--accent2); display: block; }
+  .upload-status.error   { background: rgba(255,60,95,0.08);  border: 1px solid rgba(255,60,95,0.2);  color: var(--accent);  display: block; }
+
+  .activity-link {
+    color: #fc4c02;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .activity-link:hover { text-decoration: underline; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; animation: spin 0.8s linear infinite; }
+
+    .hr-inputs { grid-template-columns: 1fr 1fr; }
+    .btn-generate { grid-column: span 2; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    header { flex-direction: column; gap: 12px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🏃</div>
+      <div>
+        <h1>GPX <span>Heart Rate</span> Analyzer</h1>
+        <div style="font-size:12px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:3px;">Visualize · Simulate · Export</div>
+      </div>
+    </div>
+    <div class="badge">v1.1</div>
+  </header>
+
+  <!-- UPLOAD -->
+  <div class="upload-section">
+    <div class="dropzone" id="dropzone">
+      <span class="dropzone-icon">📂</span>
+      <h3>Upload File GPX</h3>
+      <p>Drag & drop file .gpx ke sini, atau tap tombol di bawah</p>
+      <label class="btn-upload" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+        ⬆️ Pilih File GPX
+        <input type="file" id="fileInput" accept=".gpx,application/gpx+xml,text/xml" style="display:none">
+      </label>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid" id="statsGrid" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label">Total Titik</div>
+      <div class="stat-value blue" id="statPoints">—</div>
+      <div class="stat-unit">waypoints</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Avg Heart Rate</div>
+      <div class="stat-value green" id="statAvg">—</div>
+      <div class="stat-unit">bpm</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Max Heart Rate</div>
+      <div class="stat-value red" id="statMax">—</div>
+      <div class="stat-unit">bpm</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-label">Min Heart Rate</div>
+      <div class="stat-value yellow" id="statMin">—</div>
+      <div class="stat-unit">bpm</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Jarak Total</div>
+      <div class="stat-value blue" id="statDist">—</div>
+      <div class="stat-unit">km</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Durasi</div>
+      <div class="stat-value green" id="statDur">—</div>
+      <div class="stat-unit">hh:mm:ss</div>
+    </div>
+  </div>
+
+  <!-- HR SIMULATOR -->
+  <div class="hr-panel" id="hrPanel" style="display:none">
+    <div class="panel-header" style="margin-bottom:0">
+      <div class="panel-icon"><span class="beating">❤️</span></div>
+      <div style="flex:1">
+        <div class="panel-title">Heart Rate</div>
+        <div style="font-size:12px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:2px;" id="hrPanelSub">—</div>
+      </div>
+      <!-- Toggle Modif -->
+      <label class="modif-toggle" id="modifToggleWrap" title="Aktifkan untuk memanipulasi heart rate">
+        <input type="checkbox" id="modifCheck" onchange="onModifToggle()">
+        <span class="modif-slider"></span>
+        <span class="modif-label" id="modifLabel">Modif</span>
+      </label>
+    </div>
+
+    <!-- Existing HR summary (tampil kalau ada HR di GPX) -->
+    <div id="hrExistingInfo" style="display:none;margin-top:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+          <div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Avg HR (dari file)</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent2)" id="hrExistingAvg">—</div>
+          <div style="font-size:11px;font-family:'Space Mono',monospace;color:var(--muted)">bpm</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+          <div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Max HR (dari file)</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent)" id="hrExistingMax">—</div>
+          <div style="font-size:11px;font-family:'Space Mono',monospace;color:var(--muted)">bpm</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modif inputs (muncul kalau toggle ON) -->
+    <div id="hrModifSection" style="display:none;margin-top:16px">
+      <div style="width:100%;height:1px;background:var(--border);margin-bottom:16px"></div>
+      <div class="hr-inputs">
+        <div class="input-group">
+          <label>⚡ Average Heart Rate (bpm)</label>
+          <input type="number" class="input-field" id="avgHR" placeholder="150" min="60" max="220">
+        </div>
+        <div class="input-group">
+          <label>🔥 Max Heart Rate (bpm)</label>
+          <input type="number" class="input-field" id="maxHR" placeholder="185" min="60" max="250">
+        </div>
+        <button class="btn-generate" id="btnGenerate" onclick="generateHR()">
+          ⚡ Generate HR
+        </button>
+      </div>
+      <div class="hr-note">
+        ℹ️ HR akan didistribusikan ulang secara realistis ke setiap titik (warm-up → peak → cooldown).
+        Rata-rata = Avg HR, nilai tertinggi = Max HR.
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMEZONE PANEL -->
+  <div class="tz-panel" id="tzPanel" style="display:none">
+    <div class="panel-header">
+      <div class="panel-icon">🕐</div>
+      <div>
+        <div class="panel-title">Konversi Zona Waktu</div>
+        <div style="font-size:12px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:2px;">Ganti suffix offset waktu (+00:00) tanpa mengubah nilai jam</div>
+      </div>
+    </div>
+    <div class="tz-row" style="grid-template-columns:1fr">
+      <div class="input-group">
+        <label>🎯 Offset Tujuan — suffix yang akan ditulis di GPX</label>
+        <select class="input-field" id="tzTo" onchange="previewTZ()">
+          <option value="-12">UTC-12:00</option>
+          <option value="-11">UTC-11:00</option>
+          <option value="-10">UTC-10:00</option>
+          <option value="-9">UTC-09:00</option>
+          <option value="-8">UTC-08:00</option>
+          <option value="-7">UTC-07:00</option>
+          <option value="-6">UTC-06:00</option>
+          <option value="-5">UTC-05:00</option>
+          <option value="-4">UTC-04:00</option>
+          <option value="-3">UTC-03:00</option>
+          <option value="-2">UTC-02:00</option>
+          <option value="-1">UTC-01:00</option>
+          <option value="0">UTC+00:00</option>
+          <option value="1">UTC+01:00</option>
+          <option value="2">UTC+02:00</option>
+          <option value="3">UTC+03:00</option>
+          <option value="4">UTC+04:00</option>
+          <option value="5">UTC+05:00</option>
+          <option value="5.5">UTC+05:30</option>
+          <option value="6">UTC+06:00</option>
+          <option value="7" selected>UTC+07:00 (WIB)</option>
+          <option value="8">UTC+08:00 (WITA/SGT)</option>
+          <option value="9">UTC+09:00 (WIT/JST)</option>
+          <option value="10">UTC+10:00</option>
+          <option value="11">UTC+11:00</option>
+          <option value="12">UTC+12:00</option>
+        </select>
+      </div>
+    </div>
+    <div class="tz-preview" id="tzPreview"></div>
+  </div>
+
+  <!-- EXPORT BUTTONS -->
+  <div class="export-bar" id="exportBar" style="display:none">
+    <button class="btn-export gpx" onclick="exportGPX()">💾 Export GPX (dengan HR)</button>
+    <button class="btn-export csv" onclick="exportCSV()">📊 Export CSV</button>
+  </div>
+
+  <!-- STRAVA UPLOAD PANEL -->
+  <div class="strava-panel" id="stravaPanel" style="display:none">
+    <div class="strava-logo">
+      <div class="strava-icon">🟠</div>
+      <div>
+        <div class="strava-title">Upload ke Strava</div>
+        <div class="strava-sub" id="stravaSubtitle">Hubungkan akun Strava dengan Client ID &amp; Secret</div>
+      </div>
+      <!-- Connected badge -->
+      <div id="stravaConnectedBadge" style="display:none;margin-left:auto;background:rgba(0,229,176,0.12);border:1px solid rgba(0,229,176,0.3);color:var(--accent2);padding:5px 14px;border-radius:20px;font-size:11px;font-family:'Space Mono',monospace;font-weight:700">● CONNECTED</div>
+    </div>
+
+    <!-- STEP A: Belum connect — isi Client ID + Secret -->
+    <div id="stravaSetup">
+      <div style="margin-bottom:16px;padding:12px 14px;background:rgba(252,76,2,0.06);border:1px solid rgba(252,76,2,0.18);border-radius:10px;font-size:12px;font-family:'Space Mono',monospace;color:var(--muted);line-height:1.8">
+        Butuh Client ID &amp; Client Secret dari <a class="step-link" href="https://www.strava.com/settings/api" target="_blank">strava.com/settings/api</a>.<br>
+        Jika belum punya app Strava: buat baru, isi <strong style="color:var(--text)">Authorization Callback Domain</strong> dengan <strong style="color:#fc4c02">localhost</strong>.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="input-group">
+          <label>🔑 Client ID</label>
+          <input type="text" class="input-field" id="stravaClientId" placeholder="12345" style="font-size:14px;font-weight:700;font-family:'Space Mono',monospace">
+        </div>
+        <div class="input-group">
+          <label>🔐 Client Secret</label>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+            <input type="password" class="input-field" id="stravaClientSecret" placeholder="abc123..." style="font-size:13px;font-weight:400;font-family:'Space Mono',monospace">
+            <button style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;color:var(--muted);font-size:14px" onclick="toggleSecret(this)">👁</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn-strava" id="btnConnect" onclick="connectStrava()" style="background:linear-gradient(135deg,#fc4c02,#c73a00)">
+        🔗 Hubungkan ke Strava
+      </button>
+      <div class="upload-status" id="connectStatus"></div>
+    </div>
+
+    <!-- STEP B: Sudah connect — upload aktivitas -->
+    <div id="stravaUploadSection" style="display:none">
+      <div class="strava-fields" style="margin-bottom:14px">
+        <div class="input-group">
+          <label>📝 Nama Aktivitas</label>
+          <input type="text" class="input-field" id="stravaName" placeholder="Morning Run" style="font-size:13px;font-weight:400;font-family:'Space Mono',monospace">
+        </div>
+        <div class="input-group">
+          <label>🏃 Jenis Aktivitas</label>
+          <select class="input-field" id="stravaType" style="font-size:13px;font-weight:400;font-family:'Space Mono',monospace">
+            <option value="Run">Run</option>
+            <option value="Ride">Ride</option>
+            <option value="Swim">Swim</option>
+            <option value="Walk">Walk</option>
+            <option value="Hike">Hike</option>
+            <option value="VirtualRun">Virtual Run</option>
+            <option value="VirtualRide">Virtual Ride</option>
+            <option value="Workout">Workout</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-strava" id="btnStrava" onclick="uploadToStrava()" style="flex:1">
+          🟠 Upload ke Strava
+        </button>
+        <button onclick="disconnectStrava()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:13px 16px;color:var(--muted);font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;transition:all 0.2s;white-space:nowrap" title="Ganti akun">↩ Disconnect</button>
+      </div>
+      <div class="upload-status" id="uploadStatus"></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrapper">
+    <div class="table-header-bar">
+      <div class="table-title">
+        📍 Titik Koordinat
+        <span class="point-count" id="pointCount">0 titik</span>
+      </div>
+      <div style="font-size:11px;font-family:'Space Mono',monospace;color:var(--muted)" id="fileName">—</div>
+    </div>
+    <div class="table-scroll">
+      <div id="emptyState" class="empty-state">
+        <span class="big-icon">🗺️</span>
+        <h3>Belum ada data</h3>
+        <p>Upload file .gpx untuk melihat titik koordinat</p>
+      </div>
+      <table id="dataTable" style="display:none">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Elevasi (m)</th>
+            <th>Timestamp</th>
+            <th>Heart Rate</th>
+            <th>Zone HR</th>
+            <th>Jarak Kumulatif</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+let gpxData = [];
+let gpxDoc = null;
+let fileName = '';
+
+// ─── DRAG AND DROP ───────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+// Tap area dropzone (selain label) juga trigger file picker di mobile
+dropzone.addEventListener('click', e => {
+  if (e.target.closest('label')) return; // label sudah handle sendiri
+  document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) processFile(e.target.files[0]);
+});
+
+// ─── PARSE GPX ───────────────────────────────────────────────
+function processFile(file) {
+  if (!file.name.toLowerCase().endsWith('.gpx')) {
+    showToast('❌ File harus berformat .gpx');
+    return;
+  }
+  fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => parseGPX(e.target.result);
+  reader.readAsText(file);
+}
+
+function parseGPX(xmlStr) {
+  const parser = new DOMParser();
+  gpxDoc = parser.parseFromString(xmlStr, 'text/xml');
+
+  const trkpts = gpxDoc.querySelectorAll('trkpt');
+  if (!trkpts.length) {
+    showToast('⚠️ Tidak ada trackpoint ditemukan di file GPX');
+    return;
+  }
+
+  gpxData = [];
+  let prevLat = null, prevLon = null, cumDist = 0;
+
+  trkpts.forEach((pt, i) => {
+    const lat = parseFloat(pt.getAttribute('lat'));
+    const lon = parseFloat(pt.getAttribute('lon'));
+    const ele = pt.querySelector('ele') ? parseFloat(pt.querySelector('ele').textContent) : null;
+    const timeEl = pt.querySelector('time');
+    const time = timeEl ? timeEl.textContent : null;
+
+    // Heart rate dari ekstensi
+    let hr = null;
+    const hrEl = pt.querySelector('hr') || pt.querySelector('HeartRateBpm value') || pt.querySelector('heartrate');
+    if (hrEl) hr = parseInt(hrEl.textContent);
+    // Garmin extensions
+    const garminHr = pt.querySelector('TrackPointExtension hr');
+    if (garminHr) hr = parseInt(garminHr.textContent);
+
+    let dist = 0;
+    if (prevLat !== null) {
+      dist = haversine(prevLat, prevLon, lat, lon);
+      cumDist += dist;
+    }
+
+    gpxData.push({ lat, lon, ele, time, hr, cumDist: cumDist, index: i + 1 });
+    prevLat = lat; prevLon = lon;
+  });
+
+  document.getElementById('fileName').textContent = fileName;
+  renderTable();
+  updateStats();
+  initHRPanel();
+  document.getElementById('statsGrid').style.display = 'grid';
+  document.getElementById('hrPanel').style.display = 'block';
+  document.getElementById('tzPanel').style.display = 'block';
+  document.getElementById('exportBar').style.display = 'flex';
+  document.getElementById('stravaPanel').style.display = 'block';
+  previewTZ();  showToast(`✅ ${gpxData.length} titik berhasil dimuat`);
+}
+
+// ─── HAVERSINE ───────────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ─── HR ZONE ─────────────────────────────────────────────────
+function getZone(hr, max) {
+  if (!hr || !max) return null;
+  const pct = hr / max * 100;
+  if (pct < 60) return { z: 1, label: 'Z1', cls: 'zone-1' };
+  if (pct < 70) return { z: 2, label: 'Z2', cls: 'zone-2' };
+  if (pct < 80) return { z: 3, label: 'Z3', cls: 'zone-3' };
+  if (pct < 90) return { z: 4, label: 'Z4', cls: 'zone-4' };
+  return { z: 5, label: 'Z5', cls: 'zone-5' };
+}
+
+function hrColor(hr, maxHR) {
+  if (!hr) return '#6b7280';
+  const pct = hr / (maxHR || 200);
+  if (pct < 0.6) return '#60a5fa';
+  if (pct < 0.7) return '#00e5b0';
+  if (pct < 0.8) return '#ffb930';
+  if (pct < 0.9) return '#ff641e';
+  return '#ff3c5f';
+}
+
+// ─── RENDER TABLE ────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const maxHR = Math.max(...gpxData.map(p => p.hr || 0));
+
+  tbody.innerHTML = gpxData.map(p => {
+    const color = hrColor(p.hr, maxHR);
+    const zone = getZone(p.hr, maxHR);
+    const barW = p.hr ? Math.round((p.hr / maxHR) * 80) : 0;
+    const formattedTime = p.time ? formatTime(p.time) : '—';
+    const ele = p.ele !== null ? p.ele.toFixed(1) : '—';
+    const dist = p.cumDist > 0 ? p.cumDist.toFixed(3) + ' km' : '0.000 km';
+
+    return `<tr>
+      <td style="color:var(--muted)">${p.index}</td>
+      <td>${p.lat.toFixed(6)}</td>
+      <td>${p.lon.toFixed(6)}</td>
+      <td>${ele}</td>
+      <td style="color:var(--muted)">${formattedTime}</td>
+      <td>
+        ${p.hr ? `<span class="hr-cell">
+          <span class="hr-dot" style="background:${color}"></span>
+          <span style="color:${color};font-weight:700">${p.hr}</span>
+          <span style="color:var(--muted)">bpm</span>
+          <span class="hr-bar" style="width:${barW}px;background:${color}"></span>
+        </span>` : '<span style="color:var(--muted)">—</span>'}
+      </td>
+      <td>${zone ? `<span class="zone-badge ${zone.cls}">${zone.label}</span>` : '—'}</td>
+      <td style="color:var(--muted)">${dist}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('dataTable').style.display = 'table';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('pointCount').textContent = `${gpxData.length} titik`;
+}
+
+function formatTime(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return iso; }
+}
+
+// ─── UPDATE STATS ────────────────────────────────────────────
+function updateStats() {
+  const hrs = gpxData.map(p => p.hr).filter(Boolean);
+  document.getElementById('statPoints').textContent = gpxData.length;
+  document.getElementById('statAvg').textContent = hrs.length ? Math.round(hrs.reduce((a,b) => a+b,0)/hrs.length) : '—';
+  document.getElementById('statMax').textContent = hrs.length ? Math.max(...hrs) : '—';
+  document.getElementById('statMin').textContent = hrs.length ? Math.min(...hrs) : '—';
+  document.getElementById('statDist').textContent = gpxData.length ? gpxData[gpxData.length-1].cumDist.toFixed(2) : '—';
+
+  // Duration
+  const times = gpxData.map(p => p.time).filter(Boolean);
+  if (times.length >= 2) {
+    const ms = new Date(times[times.length-1]) - new Date(times[0]);
+    const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    document.getElementById('statDur').textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  } else {
+    document.getElementById('statDur').textContent = '—';
+  }
+}
+
+// ─── HR PANEL INIT ───────────────────────────────────────────
+function initHRPanel() {
+  const hrs = gpxData.map(p => p.hr).filter(Boolean);
+  const hasHR = hrs.length > 0;
+  const chk = document.getElementById('modifCheck');
+
+  if (hasHR) {
+    // Ada HR di file → tampilkan avg/max, toggle OFF (locked)
+    const avg = Math.round(hrs.reduce((a,b) => a+b,0) / hrs.length);
+    const max = Math.max(...hrs);
+    document.getElementById('hrExistingAvg').textContent = avg;
+    document.getElementById('hrExistingMax').textContent = max;
+    document.getElementById('hrExistingInfo').style.display = 'block';
+    document.getElementById('hrPanelSub').textContent = 'Data HR tersedia dari file GPX';
+
+    // Pre-fill input dengan nilai existing sebagai referensi
+    document.getElementById('avgHR').value = avg;
+    document.getElementById('maxHR').value = max;
+
+    // Toggle OFF
+    chk.checked = false;
+    document.getElementById('hrModifSection').style.display = 'none';
+  } else {
+    // Tidak ada HR → toggle ON otomatis
+    document.getElementById('hrExistingInfo').style.display = 'none';
+    document.getElementById('hrPanelSub').textContent = 'Tidak ada HR di file — isi untuk generate';
+    chk.checked = true;
+    document.getElementById('hrModifSection').style.display = 'block';
+  }
+}
+
+function onModifToggle() {
+  const chk = document.getElementById('modifCheck');
+  document.getElementById('hrModifSection').style.display = chk.checked ? 'block' : 'none';
+}
+
+// ─── GENERATE HR ─────────────────────────────────────────────
+function generateHR() {
+  const avgHR = parseInt(document.getElementById('avgHR').value);
+  const maxHR = parseInt(document.getElementById('maxHR').value);
+
+  if (!avgHR || !maxHR) { showToast('⚠️ Isi Average HR dan Max HR terlebih dahulu'); return; }
+  if (avgHR >= maxHR) { showToast('⚠️ Average HR harus lebih kecil dari Max HR'); return; }
+  if (avgHR < 50 || maxHR > 250) { showToast('⚠️ Nilai HR tidak valid (50–250 bpm)'); return; }
+  if (!gpxData.length) { showToast('⚠️ Upload file GPX terlebih dahulu'); return; }
+
+  const n = gpxData.length;
+  const minHR = Math.max(Math.round(avgHR * 0.7), 50);
+
+  // Generate HR menggunakan kurva aktivitas realistis
+  // Fase: warm-up (15%) → build (20%) → peak (40%) → cooldown (25%)
+  let raw = generateRealisticHRCurve(n, avgHR, maxHR, minHR);
+
+  // Normalisasi agar avg tepat
+  raw = normalizeToAvg(raw, avgHR, maxHR, minHR);
+
+  gpxData.forEach((p, i) => { p.hr = raw[i]; });
+
+  updateStats();
+  renderTable();
+  showToast(`✅ HR berhasil digenerate! Avg: ${avgHR} bpm, Max: ${maxHR} bpm`);
+}
+
+function generateRealisticHRCurve(n, avg, max, min) {
+  const arr = [];
+
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1); // 0..1
+
+    let base;
+    if (t < 0.12) {
+      // Warm-up: min → avg*0.9
+      const p = t / 0.12;
+      base = min + (avg * 0.9 - min) * easeIn(p);
+    } else if (t < 0.30) {
+      // Build: avg*0.9 → avg*1.05
+      const p = (t - 0.12) / 0.18;
+      base = avg * 0.9 + (avg * 1.05 - avg * 0.9) * p;
+    } else if (t < 0.55) {
+      // Peak phase: avg*1.05 → max
+      const p = (t - 0.30) / 0.25;
+      base = avg * 1.05 + (max - avg * 1.05) * easeIn(p);
+    } else if (t < 0.70) {
+      // Sustain near max
+      base = max * (0.93 + 0.07 * Math.sin(t * 15));
+    } else if (t < 0.85) {
+      // Second build with variation
+      const p = (t - 0.70) / 0.15;
+      base = max * 0.9 + (max * 0.97 - max * 0.9) * Math.sin(p * Math.PI);
+    } else {
+      // Cooldown
+      const p = (t - 0.85) / 0.15;
+      base = max * 0.9 - (max * 0.9 - avg * 0.8) * easeOut(p);
+    }
+
+    // Tambah variasi alami (noise)
+    const noise = (Math.random() - 0.5) * (avg * 0.06);
+    arr.push(Math.round(base + noise));
+  }
+
+  return arr;
+}
+
+function easeIn(t) { return t * t; }
+function easeOut(t) { return 1 - (1 - t) * (1 - t); }
+
+function normalizeToAvg(arr, targetAvg, targetMax, minHR) {
+  // Pastikan max sudah tepat
+  const currentMax = Math.max(...arr);
+  const maxIdx = arr.indexOf(currentMax);
+  let normalized = arr.map(v => Math.round(v * (targetMax / currentMax)));
+
+  // Iterasi normalisasi avg
+  for (let iter = 0; iter < 200; iter++) {
+    const currentAvg = normalized.reduce((a, b) => a + b, 0) / normalized.length;
+    const diff = targetAvg - currentAvg;
+    if (Math.abs(diff) < 0.5) break;
+
+    const adjust = diff > 0 ? 1 : -1;
+    // Pilih titik yang bisa digeser tanpa merusak max dan min
+    const candidates = normalized
+      .map((v, i) => ({ v, i }))
+      .filter(({ v, i }) => i !== maxIdx && v + adjust <= targetMax && v + adjust >= minHR);
+
+    if (!candidates.length) break;
+
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    normalized[pick.i] += adjust;
+  }
+
+  // Pastikan max ada di posisinya
+  normalized[maxIdx] = targetMax;
+
+  // Clamp
+  normalized = normalized.map(v => Math.max(minHR, Math.min(targetMax, v)));
+
+  return normalized;
+}
+
+// ─── TIMEZONE HELPERS ────────────────────────────────────────
+function offsetLabel(val) {
+  const h = Math.floor(Math.abs(val));
+  const m = Math.round((Math.abs(val) - h) * 60);
+  const sign = val >= 0 ? '+' : '-';
+  return `${sign}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function convertTimeStr(isoStr, fromOffset, toOffset) {
+  // Hanya ganti suffix offset, TANPA mengubah nilai jam/menit/detik
+  // "2026-02-17T05:49:19+00:00" → "2026-02-17T05:49:19+07:00"
+  if (!isoStr) return isoStr;
+  const stripped = isoStr.trim().replace(/(Z|[+-]\d{2}:\d{2})$/, '');
+  return stripped + offsetLabel(toOffset);
+}
+
+function previewTZ() {
+  const preview = document.getElementById('tzPreview');
+  if (!gpxData.length) { preview.classList.remove('visible'); return; }
+
+  const toOff = parseFloat(document.getElementById('tzTo').value);
+  const sample = gpxData[0].time;
+  if (!sample) { preview.classList.remove('visible'); return; }
+
+  const converted = convertTimeStr(sample, 0, toOff);
+  preview.innerHTML = `
+    <div style="margin-bottom:6px"><span style="color:#60a5fa">Contoh trkpt &lt;time&gt;:</span>
+      <span style="color:var(--muted)">${sample}</span>
+      <span class="tz-arrow"> → </span>
+      <span style="color:var(--accent2)">${converted}</span>
+    </div>
+    <div><span style="color:#60a5fa">metadata &lt;time&gt;:</span>
+      <span style="color:var(--muted)">diganti dengan waktu titik pertama</span>
+      <span class="tz-arrow"> → </span>
+      <span style="color:var(--accent2)">${converted}</span>
+    </div>
+  `;
+  preview.classList.add('visible');
+}
+
+// ─── EXPORT GPX ──────────────────────────────────────────────
+function exportGPX() {
+  if (!gpxDoc || !gpxData.length) { showToast('⚠️ Tidak ada data untuk diekspor'); return; }
+
+  const toOff   = parseFloat(document.getElementById('tzTo').value);
+  const doTZConvert = true;
+
+  const trkpts = gpxDoc.querySelectorAll('trkpt');
+
+  trkpts.forEach((pt, i) => {
+    // ── Heart Rate ──
+    if (gpxData[i] && gpxData[i].hr) {
+      const oldExt = pt.querySelector('extensions');
+      if (oldExt) {
+        const oldHr = oldExt.querySelector('hr') || oldExt.querySelector('TrackPointExtension hr');
+        if (oldHr) oldHr.parentNode.removeChild(oldHr);
+      }
+      let ext = pt.querySelector('extensions');
+      if (!ext) { ext = gpxDoc.createElement('extensions'); pt.appendChild(ext); }
+      let tpe = ext.querySelector('gpxtpx\\:TrackPointExtension') || ext.querySelector('TrackPointExtension');
+      if (!tpe) { tpe = gpxDoc.createElement('gpxtpx:TrackPointExtension'); ext.appendChild(tpe); }
+      let hrEl = tpe.querySelector('gpxtpx\\:hr') || tpe.querySelector('hr');
+      if (!hrEl) { hrEl = gpxDoc.createElement('gpxtpx:hr'); tpe.appendChild(hrEl); }
+      hrEl.textContent = gpxData[i].hr;
+    }
+
+    // ── Timezone conversion on <time> inside each trkpt ──
+    if (doTZConvert) {
+      const timeEl = pt.querySelector('time');
+      if (timeEl && timeEl.textContent) {
+        timeEl.textContent = convertTimeStr(timeEl.textContent.trim(), 0, toOff);
+      }
+    }
+  });
+
+  // ── Update <metadata><time> → waktu titik pertama (dengan TZ tujuan) ──
+  const metaTimeEl = gpxDoc.querySelector('metadata time');
+  if (gpxData[0] && gpxData[0].time) {
+    const firstTime = convertTimeStr(gpxData[0].time, 0, toOff);
+    if (metaTimeEl) {
+      metaTimeEl.textContent = firstTime;
+    } else {
+      // Buat elemen metadata > time jika belum ada
+      let meta = gpxDoc.querySelector('metadata');
+      if (!meta) {
+        meta = gpxDoc.createElement('metadata');
+        const gpxRoot = gpxDoc.querySelector('gpx');
+        gpxRoot.insertBefore(meta, gpxRoot.firstChild);
+      }
+      let newTime = gpxDoc.createElement('time');
+      newTime.textContent = firstTime;
+      meta.appendChild(newTime);
+    }
+  }
+
+  // Tambah namespace jika belum ada
+  const gpxRoot = gpxDoc.querySelector('gpx');
+  if (gpxRoot && !gpxRoot.getAttribute('xmlns:gpxtpx')) {
+    gpxRoot.setAttribute('xmlns:gpxtpx', 'http://www.garmin.com/xmlschemas/TrackPointExtension/v1');
+  }
+
+  const serializer = new XMLSerializer();
+  const xmlStr = serializer.serializeToString(gpxDoc);
+  const blob = new Blob([xmlStr], { type: 'application/gpx+xml' });
+  downloadBlob(blob, fileName.replace('.gpx', '_exported.gpx'));
+  showToast('💾 GPX berhasil diunduh dengan HR + timezone!');
+}
+
+// ─── EXPORT CSV ──────────────────────────────────────────────
+function exportCSV() {
+  if (!gpxData.length) { showToast('⚠️ Tidak ada data untuk diekspor'); return; }
+
+  const headers = ['No', 'Latitude', 'Longitude', 'Elevasi (m)', 'Timestamp', 'Heart Rate (bpm)', 'HR Zone', 'Jarak Kumulatif (km)'];
+  const maxHR = Math.max(...gpxData.map(p => p.hr || 0));
+
+  const rows = gpxData.map(p => {
+    const zone = getZone(p.hr, maxHR);
+    return [
+      p.index,
+      p.lat.toFixed(6),
+      p.lon.toFixed(6),
+      p.ele !== null ? p.ele.toFixed(1) : '',
+      p.time || '',
+      p.hr || '',
+      zone ? zone.label : '',
+      p.cumDist.toFixed(3)
+    ].join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, fileName.replace('.gpx', '_data.csv'));
+  showToast('📊 CSV berhasil diunduh');
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ─── STRAVA OAUTH ────────────────────────────────────────────
+let stravaAccessToken  = localStorage.getItem('strava_access_token')  || '';
+let stravaRefreshToken = localStorage.getItem('strava_refresh_token') || '';
+let stravaTokenExpiry  = parseInt(localStorage.getItem('strava_token_expiry') || '0');
+let stravaClientId     = localStorage.getItem('strava_client_id')     || '';
+let stravaClientSecret = localStorage.getItem('strava_client_secret') || '';
+let oauthPopup = null;
+
+// Restore UI state on load
+(function restoreStravaState() {
+  if (stravaAccessToken && stravaClientId) {
+    document.getElementById('stravaClientId').value = stravaClientId;
+    showStravaConnected();
+  }
+})();
+
+function toggleSecret(btn) {
+  const inp = document.getElementById('stravaClientSecret');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function showStravaConnected() {
+  document.getElementById('stravaSetup').style.display = 'none';
+  document.getElementById('stravaUploadSection').style.display = 'block';
+  document.getElementById('stravaConnectedBadge').style.display = 'flex';
+  document.getElementById('stravaSubtitle').textContent = 'Akun terhubung — siap upload aktivitas';
+}
+
+function disconnectStrava() {
+  stravaAccessToken = stravaRefreshToken = stravaClientId = stravaClientSecret = '';
+  stravaTokenExpiry = 0;
+  ['strava_access_token','strava_refresh_token','strava_token_expiry','strava_client_id','strava_client_secret']
+    .forEach(k => localStorage.removeItem(k));
+  document.getElementById('stravaSetup').style.display = 'block';
+  document.getElementById('stravaUploadSection').style.display = 'none';
+  document.getElementById('stravaConnectedBadge').style.display = 'none';
+  document.getElementById('stravaSubtitle').textContent = 'Hubungkan akun Strava dengan Client ID & Secret';
+  document.getElementById('stravaClientId').value = '';
+  document.getElementById('stravaClientSecret').value = '';
+  document.getElementById('connectStatus').className = 'upload-status';
+  document.getElementById('connectStatus').innerHTML = '';
+}
+
+async function connectStrava() {
+  const clientId     = document.getElementById('stravaClientId').value.trim();
+  const clientSecret = document.getElementById('stravaClientSecret').value.trim();
+
+  if (!clientId || !clientSecret) {
+    setConnectStatus('error', '❌ Isi Client ID dan Client Secret terlebih dahulu.');
+    return;
+  }
+
+  stravaClientId     = clientId;
+  stravaClientSecret = clientSecret;
+
+  // Buka popup OAuth Strava
+  const redirectUri = 'https://localhost/callback';
+  const scope = 'activity:write,read';
+  const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&approval_prompt=force&scope=${scope}`;
+
+  setConnectStatus('loading', '<span class="spinner">⏳</span> Menunggu login Strava di popup...');
+
+  const w = 600, h = 700;
+  const left = Math.round(screen.width/2 - w/2);
+  const top  = Math.round(screen.height/2 - h/2);
+  oauthPopup = window.open(authUrl, 'stravaOAuth', `width=${w},height=${h},left=${left},top=${top}`);
+
+  if (!oauthPopup) {
+    setConnectStatus('error', '❌ Popup diblokir browser. Izinkan popup untuk domain ini lalu coba lagi.');
+    return;
+  }
+
+  // Poll popup URL untuk tangkap ?code= dari redirect
+  const pollInterval = setInterval(async () => {
+    try {
+      if (!oauthPopup || oauthPopup.closed) {
+        clearInterval(pollInterval);
+        // Cek apakah connectStatus masih loading (user tutup popup manual)
+        const st = document.getElementById('connectStatus');
+        if (st.classList.contains('loading')) {
+          setConnectStatus('error', '❌ Popup ditutup sebelum selesai. Coba lagi.');
+        }
+        return;
+      }
+
+      let popupUrl = '';
+      try { popupUrl = oauthPopup.location.href; } catch(e) { return; } // cross-origin, tunggu
+
+      if (popupUrl.includes('localhost/callback') && popupUrl.includes('code=')) {
+        clearInterval(pollInterval);
+        oauthPopup.close();
+
+        const urlParams = new URL(popupUrl).searchParams;
+        const code  = urlParams.get('code');
+        const error = urlParams.get('error');
+
+        if (error) {
+          setConnectStatus('error', `❌ Strava menolak akses: ${error}`);
+          return;
+        }
+
+        setConnectStatus('loading', '<span class="spinner">⏳</span> Menukar authorization code → Access Token...');
+        await exchangeCode(code, clientId, clientSecret);
+      }
+    } catch(e) { /* cross-origin sementara, lanjut poll */ }
+  }, 500);
+}
+
+async function exchangeCode(code, clientId, clientSecret) {
+  try {
+    const res = await fetch('https://www.strava.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+        grant_type: 'authorization_code'
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.errors) {
+      const msg = data.message || JSON.stringify(data.errors || data);
+      setConnectStatus('error', `❌ Token exchange gagal: ${msg}`);
+      return;
+    }
+
+    // Simpan token
+    stravaAccessToken  = data.access_token;
+    stravaRefreshToken = data.refresh_token;
+    stravaTokenExpiry  = data.expires_at;
+    stravaClientId     = clientId;
+    stravaClientSecret = clientSecret;
+
+    localStorage.setItem('strava_access_token',  stravaAccessToken);
+    localStorage.setItem('strava_refresh_token', stravaRefreshToken);
+    localStorage.setItem('strava_token_expiry',  stravaTokenExpiry);
+    localStorage.setItem('strava_client_id',     stravaClientId);
+    localStorage.setItem('strava_client_secret', stravaClientSecret);
+
+    const athlete = data.athlete;
+    const name = athlete ? `${athlete.firstname} ${athlete.lastname}` : 'Athlete';
+    setConnectStatus('success', `✅ Berhasil terhubung sebagai <strong>${name}</strong>`);
+
+    setTimeout(() => showStravaConnected(), 1200);
+
+  } catch(err) {
+    setConnectStatus('error', `❌ Error: ${err.message}`);
+  }
+}
+
+async function ensureFreshToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (stravaTokenExpiry - now > 300) return true; // masih valid > 5 menit
+
+  // Refresh token
+  try {
+    const res = await fetch('https://www.strava.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: stravaClientId,
+        client_secret: stravaClientSecret,
+        refresh_token: stravaRefreshToken,
+        grant_type: 'refresh_token'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) return false;
+    stravaAccessToken  = data.access_token;
+    stravaRefreshToken = data.refresh_token;
+    stravaTokenExpiry  = data.expires_at;
+    localStorage.setItem('strava_access_token',  stravaAccessToken);
+    localStorage.setItem('strava_refresh_token', stravaRefreshToken);
+    localStorage.setItem('strava_token_expiry',  stravaTokenExpiry);
+    return true;
+  } catch { return false; }
+}
+
+function setConnectStatus(type, html) {
+  const el = document.getElementById('connectStatus');
+  el.className = `upload-status ${type}`;
+  el.innerHTML = html;
+}
+
+// ─── STRAVA UPLOAD ───────────────────────────────────────────
+async function uploadToStrava() {
+  const name = document.getElementById('stravaName').value.trim() || 'Activity';
+  const type = document.getElementById('stravaType').value;
+  const btn  = document.getElementById('btnStrava');
+
+  if (!stravaAccessToken) { setStatus('error', '❌ Belum terhubung ke Strava.'); return; }
+  if (!gpxData.length)    { setStatus('error', '❌ Tidak ada data GPX yang dimuat.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner">⏳</span> Mengupload...';
+  setStatus('loading', '<span class="spinner">⏳</span> Menyiapkan file GPX...');
+
+  // Refresh token jika perlu
+  const ok = await ensureFreshToken();
+  if (!ok) { setStatus('error', '❌ Token expired, tidak bisa refresh. Silakan disconnect & connect ulang.'); btn.disabled=false; btn.innerHTML='🟠 Upload ke Strava'; return; }
+
+  // Build GPX
+  const toOff  = parseFloat(document.getElementById('tzTo').value);
+  const clone  = gpxDoc.cloneNode(true);
+  const trkpts = clone.querySelectorAll('trkpt');
+
+  trkpts.forEach((pt, i) => {
+    if (!gpxData[i]) return;
+    // HR
+    if (gpxData[i].hr) {
+      let ext = pt.querySelector('extensions');
+      if (!ext) { ext = clone.createElement('extensions'); pt.appendChild(ext); }
+      let tpe = ext.querySelector('gpxtpx\\:TrackPointExtension') || ext.querySelector('TrackPointExtension');
+      if (!tpe) { tpe = clone.createElement('gpxtpx:TrackPointExtension'); ext.appendChild(tpe); }
+      let hrEl = tpe.querySelector('gpxtpx\\:hr') || tpe.querySelector('hr');
+      if (!hrEl) { hrEl = clone.createElement('gpxtpx:hr'); tpe.appendChild(hrEl); }
+      hrEl.textContent = gpxData[i].hr;
+    }
+    // TZ
+    const timeEl = pt.querySelector('time');
+    if (timeEl && timeEl.textContent) {
+      timeEl.textContent = convertTimeStr(timeEl.textContent.trim(), 0, toOff);
+    }
+  });
+
+  const metaTime = clone.querySelector('metadata time');
+  if (gpxData[0]?.time) {
+    const firstTime = convertTimeStr(gpxData[0].time, 0, toOff);
+    if (metaTime) metaTime.textContent = firstTime;
+  }
+
+  const gpxRoot = clone.querySelector('gpx');
+  if (gpxRoot && !gpxRoot.getAttribute('xmlns:gpxtpx')) {
+    gpxRoot.setAttribute('xmlns:gpxtpx', 'http://www.garmin.com/xmlschemas/TrackPointExtension/v1');
+  }
+
+  const gpxStr  = new XMLSerializer().serializeToString(clone);
+  const gpxBlob = new Blob([gpxStr], { type: 'application/gpx+xml' });
+
+  const form = new FormData();
+  form.append('file', gpxBlob, fileName.replace('.gpx', '_strava.gpx'));
+  form.append('name', name);
+  form.append('sport_type', type);
+  form.append('data_type', 'gpx');
+
+  setStatus('loading', '<span class="spinner">⏳</span> Mengirim ke Strava API...');
+
+  try {
+    const res = await fetch('https://www.strava.com/api/v3/uploads', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${stravaAccessToken}` },
+      body: form
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus('error', `❌ Upload gagal: ${data.message || JSON.stringify(data)}`);
+      return;
+    }
+
+    const uploadId = data.id;
+    setStatus('loading', `<span class="spinner">⏳</span> File diterima (ID: ${uploadId}). Menunggu Strava memproses...`);
+
+    let activityId = null;
+    for (let i = 0; i < 20; i++) {
+      await sleep(2500);
+      const poll = await fetch(`https://www.strava.com/api/v3/uploads/${uploadId}`, {
+        headers: { 'Authorization': `Bearer ${stravaAccessToken}` }
+      });
+      const p = await poll.json();
+      if (p.error) { setStatus('error', `❌ Strava error: ${p.error}`); return; }
+      if (p.activity_id) { activityId = p.activity_id; break; }
+    }
+
+    if (activityId) {
+      setStatus('success', `✅ Berhasil diupload!<br>
+        🏃 <strong>${name}</strong> (${type})<br>
+        🔗 <a class="activity-link" href="https://www.strava.com/activities/${activityId}" target="_blank">
+          Lihat di Strava →
+        </a>`);
+    } else {
+      setStatus('success', `✅ File dikirim, Strava masih memproses.<br>
+        Cek <a class="activity-link" href="https://www.strava.com/athlete/training" target="_blank">halaman aktivitas kamu</a>.`);
+    }
+  } catch(err) {
+    setStatus('error', `❌ Network error: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🟠 Upload ke Strava';
+  }
+}
+
+function setStatus(type, html) {
+  const el = document.getElementById('uploadStatus');
+  el.className = `upload-status ${type}`;
+  el.innerHTML = html;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
